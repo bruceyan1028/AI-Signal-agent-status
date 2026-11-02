@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Superagent</title>
+<style>
+  :root {
+    --bg: #0f1419; --side: #131920; --card: #1a2029; --line: #2a3240;
+    --fg: #e6e9ef; --dim: #8b95a5;
+    --blue: #4c8dff; --green: #34c98e; --amber: #f5a623; --red: #f0564a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .muted { color: var(--dim); }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+  button { font: inherit; }
+
+  #app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ===== 侧栏 ===== */
+  #side { width: 300px; min-width: 300px; background: var(--side); border-right: 1px solid var(--line);
+          display: flex; flex-direction: column; }
+  .brand { font-weight: 700; font-size: 15px; padding: 14px 14px 8px; }
+  .brand .beta { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 6px; }
+  #nav-views { display: flex; gap: 4px; padding: 0 12px 10px; }
+  .vbtn { flex: 1; text-align: center; padding: 5px 0; border-radius: 8px; cursor: pointer;
+          color: var(--dim); font-size: 12px; border: 1px solid transparent; user-select: none; }
+  .vbtn:hover { color: var(--fg); }
+  .vbtn.on { background: var(--card); color: var(--blue); border-color: var(--line); }
+  #new-chat { margin: 2px 12px 8px; padding: 9px 0; border-radius: 10px; background: var(--blue);
+              color: #fff; text-align: center; cursor: pointer; font-weight: 600; font-size: 13px;
+              user-select: none; }
+  #new-chat:hover { filter: brightness(1.1); }
+  #filters { display: flex; gap: 4px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
+  #filters::-webkit-scrollbar { display: none; }
+  .fchip { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+           font-size: 11px; cursor: pointer; color: var(--dim); user-select: none; background: transparent; }
+  .fchip.on { border-color: var(--blue); color: var(--blue); }
+  #conv-list { flex: 1; overflow-y: auto; padding: 2px 8px 8px; }
+  .citem { padding: 8px 10px; border-radius: 10px; cursor: pointer; margin-bottom: 2px; }
+  .citem:hover { background: rgba(255,255,255,.04); }
+  .citem.on { background: rgba(76,141,255,.14); }
+  .citem .t1 { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .citem .ttl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .citem .t2 { font-size: 11px; color: var(--dim); margin-top: 2px; display: flex; gap: 8px;
+               overflow: hidden; white-space: nowrap; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .badge { display: inline-block; border-radius: 5px; padding: 1px 6px; font-size: 10.5px;
+           white-space: nowrap; background: rgba(139,149,165,.18); color: var(--dim); }
+  .b-blue { background: rgba(76,141,255,.15); color: var(--blue); }
+  .b-green { background: rgba(52,201,142,.15); color: var(--green); }
+  .b-amber { background: rgba(245,166,35,.15); color: var(--amber); }
+  .b-gray { background: rgba(139,149,165,.18); color: var(--dim); }
+  .b-purple { background: rgba(170,102,255,.18); color: #c9a0ff; }
+  #side-foot { border-top: 1px solid var(--line); padding: 8px 14px; font-size: 11px; color: var(--dim);
+               display: flex; justify-content: space-between; align-items: center; }
+  #refresh { cursor: pointer; user-select: none; }
+  #refresh:hover { color: var(--blue); }
+
+  /* ===== 主区 ===== */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  #alertbar { display: none; padding: 7px 16px; font-size: 12px; border-bottom: 1px solid var(--line); }
+  #alertbar.red { display: block; background: rgba(240,86,74,.12); color: var(--red); }
+  #alertbar.amber { display: block; background: rgba(245,166,35,.12); color: var(--amber); }
+
+  /* 聊天视图 */
+  #view-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #chat-head { padding: 10px 18px; border-bottom: 1px solid var(--line); display: flex;
+               align-items: center; gap: 10px; min-height: 50px; }
+  #menu-btn { display: none; cursor: pointer; font-size: 18px; color: var(--dim); }
+  #h-title { font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0; overflow: hidden;
+             text-overflow: ellipsis; white-space: nowrap; }
+  #h-meta { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; }
+  #agents-info { flex: none; font-size: 12px; color: var(--dim); cursor: pointer; user-select: none; }
+  #agents-info:hover { color: var(--blue); }
+  #msgs-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+  #msgs { max-width: 780px; margin: 0 auto; padding: 16px 18px 10px; }
+  .center { text-align: center; }
+  .day-sep { display: flex; align-items: center; gap: 12px; color: var(--dim); font-size: 11px;
+             margin: 16px 0 10px; }
+  .day-sep::before, .day-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .msgrow { display: flex; gap: 10px; margin: 12px 0; }
+  .msgrow.user { flex-direction: row-reverse; }
+  .avatar { width: 27px; height: 27px; border-radius: 50%; flex: none; display: flex;
+            align-items: center; justify-content: center; font-size: 14px;
+            background: rgba(255,255,255,.07); }
+  .mbody { max-width: 82%; min-width: 0; }
+  .mrole { font-size: 11px; color: var(--dim); margin-bottom: 3px; }
+  .msgrow.user .mrole { text-align: right; }
+  .mtext { white-space: pre-wrap; word-break: break-word; font-size: 13.5px; line-height: 1.65; }
+  .msgrow.user .mtext { background: rgba(255,255,255,.07); padding: 9px 13px;
+                        border-radius: 14px 14px 4px 14px; }
+  .tools-line { font-size: 11.5px; color: var(--dim); margin-top: 4px; user-select: none;
+                cursor: default; }
+  .tools-line b { color: #9aa5b5; font-weight: 500; }
+  /* 步骤清单卡片（Claude 计划样式） */
+  .todo-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+               padding: 12px 16px; margin: 4px 0 16px; }
+  .todo-card .thead { display: flex; align-items: center; gap: 8px; font-size: 12px;
+                      color: var(--dim); margin-bottom: 6px; }
+  .todo-card .thead .done-ratio { margin-left: auto; }
+  .todo-item { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 13px; }
+  .todo-item .tick { flex: none; width: 16px; text-align: center; font-size: 12px; }
+  .todo-item.completed .tick { color: var(--green); }
+  .todo-item.completed .txt { color: var(--dim); text-decoration: line-through; }
+  .todo-item.in_progress .tick { color: var(--blue); }
+  .todo-item.in_progress .txt { color: var(--fg); }
+  .todo-item.pending .tick { color: var(--dim); }
+  .todo-item.pending .txt { color: var(--dim); }
+  .sysnote { justify-content: center; display: flex; margin: 10px 0; }
+  .sysnote span { font-size: 12px; color: var(--dim); background: var(--card);
+                  padding: 5px 14px; border-radius: 999px; border: 1px solid var(--line); }
+  .sysnote span a { color: var(--blue); }
+  .load-earlier { text-align: center; margin: 8px 0; }
+  .morebtn { color: var(--blue); font-size: 12px; cursor: pointer; user-select: none; }
+  .morebtn:hover { text-decoration: underline; }
+
+  /* 输入区 */
+  #composer-wrap { border-top: 1px solid var(--line); padding: 10px 16px 14px; }
+  #composer { max-width: 780px; margin: 0 auto; }
+  #cmp-mode { font-size: 11px; color: var(--dim); margin-bottom: 6px; display: flex;
+              flex-wrap: wrap; gap: 8px; align-items: center; min-height: 18px; }
+  .cmp-chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+              font-size: 11px; cursor: pointer; color: var(--dim); user-select: none; }
+  .cmp-chip.on { border-color: var(--blue); color: var(--blue); }
+  #cmp-row { display: flex; gap: 8px; }
+  #cmp-input { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+               padding: 10px 15px; color: var(--fg); font: 13.5px/1.5 inherit; outline: none; min-width: 0; }
+  #cmp-input:focus { border-color: var(--blue); }
+  #cmp-send { background: var(--blue); border: none; border-radius: 14px; color: #fff;
+              padding: 0 20px; cursor: pointer; font-weight: 600; font-size: 13px; }
+  #cmp-send:hover { filter: brightness(1.1); }
+  #cmp-hint { font-size: 11px; color: var(--dim); margin-top: 6px; }
+  #cmp-hint a { color: var(--dim); }
+  #cmp-hint a:hover { color: var(--blue); }
+
+  /* 工单/状态视图 */
+  #view-tickets, #view-status { display: none; overflow-y: auto; flex: 1; }
+  .vwrap { max-width: 920px; margin: 0 auto; padding: 24px 18px 48px; width: 100%; }
+  .vwrap h2 { font-size: 16px; margin: 18px 0 8px; }
+  .banner { padding: 10px 14px; border-radius: 8px; margin: 12px 0; display: none; font-size: 13px; }
+  .banner.degraded { display: block; background: rgba(240,86,74,.12); border: 1px solid var(--red); }
+  .banner.amber { display: block; background: rgba(245,166,35,.12); border: 1px solid var(--amber); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .stat .k { color: var(--dim); font-size: 12px; }
+  .stat .v { font-size: 20px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+          padding: 3px 12px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; }
+  .vwrap footer { margin-top: 36px; color: var(--dim); font-size: 12px; }
+
+  /* agents 弹层 */
+  #agents-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+                  z-index: 50; align-items: center; justify-content: center; padding: 20px; }
+  #agents-modal.show { display: flex; }
+  .amodal { width: min(680px, 94vw); max-height: 78vh; overflow-y: auto; background: var(--card);
+            border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .amodal h3 { margin: 4px 0 12px; font-size: 15px; }
+  .amodal .close { float: right; cursor: pointer; color: var(--dim); font-size: 18px; }
+  .amodal .close:hover { color: var(--fg); }
+  .grp { margin: 12px 0 4px; }
+  .grp .ghead { color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  .arow { padding: 3px 8px; border-left: 2px solid var(--line); margin: 4px 0; font-size: 12px;
+          display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .arow .aname { font-weight: 600; }
+  .adone { color: var(--green); }
+  .arunning { color: var(--amber); }
+
+  @media (max-width: 760px) {
+    #side { position: fixed; z-index: 40; left: -100%; width: 86vw; min-width: 0;
+            transition: left .2s; height: 100vh; }
+    #side.show { left: 0; box-shadow: 0 0 40px rgba(0,0,0,.5); }
+    #menu-btn { display: block; }
+    .mbody { max-width: 90%; }
+    #h-meta { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <aside id="side">
+    <div class="brand">⚡ Superagent <span class="beta">调度台</span></div>
+    <div id="nav-views">
+      <span class="vbtn on" data-view="chat">💬 对话</span>
+      <span class="vbtn" data-view="tickets">🎫 工单</span>
+      <span class="vbtn" data-view="status">📊 状态</span>
+    </div>
+    <div id="new-chat">＋ 新对话</div>
+    <div id="filters"></div>
+    <div id="conv-list"><p class="muted" style="padding:10px">加载中…</p></div>
+    <div id="side-foot"><span id="foot-meta">…</span><span id="refresh" title="立即刷新">⟳</span></div>
+  </aside>
+
+  <main id="main">
+    <div id="alertbar"></div>
+
+    <div id="view-chat">
+      <header id="chat-head">
+        <span id="menu-btn">☰</span>
+        <div id="h-title">Superagent</div>
+        <div id="h-meta"></div>
+        <span id="agents-info" title="查看 agent 树"></span>
+      </header>
+      <div id="msgs-wrap"><div id="msgs"><p class="muted center">加载中…</p></div></div>
+      <div id="composer-wrap">
+        <div id="composer">
+          <div id="cmp-mode"></div>
+          <div id="cmp-row">
+            <input id="cmp-input" placeholder="输入任务…" autocomplete="off">
+            <button id="cmp-send">发送</button>
+          </div>
+          <div id="cmp-hint">中继不可用时自动回退 GitHub 提交页 · <a id="cmd-advanced" href="#" target="_blank" rel="noopener">高级指令（send/stop）</a> · <a id="cmd-issues" href="#" target="_blank" rel="noopener">指令历史</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-tickets">
+      <div class="vwrap">
+        <h2>工单（superagent）</h2>
+        <div id="banner-paused" class="banner amber">处理已暂停（paused）：评估、派工与回复均已挂起。</div>
+        <table>
+          <thead><tr><th>工单</th><th>标题</th><th>阶段</th><th>入口</th></tr></thead>
+          <tbody id="tickets"></tbody>
+        </table>
+        <p class="muted" id="tickets-note" style="display:none"></p>
+      </div>
+    </div>
+
+    <div id="view-status">
+      <div class="vwrap">
+        <h2>系统状态</h2>
+        <div id="banner-degraded" class="banner degraded">管理 API 不可达：agent 服务可能已停止或正在重启（看门狗会尝试自动恢复）。</div>
+        <div id="banner-setup" class="banner amber"></div>
+        <div class="grid" id="stats"></div>
+        <div class="chips" id="health"></div>
+        <p class="muted" id="status-meta"></p>
+        <footer>
+          只读快照 · 发需求/追问请到镜像仓库的 Issue/PR 下评论 <code>@agent</code> ·
+          停止/重试等控制操作请经 SSH 隧道使用内置面板（设计方案 §5.3） ·
+          指令通道熔断：<code>rm ~/superagent-mirror/commands/enabled</code>
+        </footer>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="agents-modal"><div class="amodal" id="amodal-body"></div></div>
+
+<script>
+"use strict";
+var CONFIG = { refreshMs: 60 * 1000, rawJsonUrl: "" };
+
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function fmtAge(iso) {
+  if (!iso) return "—";
+  var t = Date.parse(iso);
+  if (isNaN(t)) return String(iso);
+  var s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 90) return Math.round(s) + " 秒前";
+  if (s < 5400) return Math.round(s / 60) + " 分钟前";
+  if (s < 129600) return Math.round(s / 3600) + " 小时前";
+  return Math.round(s / 86400) + " 天前";
+}
+function fmtDay(iso) {
+  if (!iso) return "";
+  var d = new Date(iso);
+  if (isNaN(d)) return "";
+  var now = new Date();
+  var sameDay = function (a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  };
+  var yst = new Date(now.getTime() - 86400000);
+  if (sameDay(d, now)) return "今天";
+  if (sameDay(d, yst)) return "昨天";
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+}
+function fmtTime(iso) {
+  if (!iso) return "";
+  var d = new Date(iso);
+  if (isNaN(d)) return "";
+  var p = function (n) { return (n < 10 ? "0" : "") + n; };
+  return p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+// ===== 状态 =====
+var state = { view: "chat", filter: "all", sel: null, convDoc: null,
+              msgsShown: {}, notes: {}, tool: "claude" };
+var CMD_REPO_URL = "https://github.com/bruceyan1028/AI-Signal-agent-commands";
+var NEW_ISSUE_URL = CMD_REPO_URL + "/issues/new";
+document.getElementById("cmd-advanced").href = NEW_ISSUE_URL;
+document.getElementById("cmd-issues").href = CMD_REPO_URL + "/issues?q=is%3Aissue";
+
+var FILTERS = [
+  { id: "all", label: "全部" }, { id: "active", label: "活跃" },
+  { id: "command", label: "指令通道" }, { id: "superagent", label: "superagent" },
+  { id: "claude-code", label: "Claude" }, { id: "dsh", label: "DSH" }
+];
+function matchFilter(c, f) {
+  if (f === "all") return true;
+  if (f === "active") return c.status === "active";
+  if (f === "command") return c.origin === "command";
+  return c.tool === f || c.origin === f;
+}
+function agentGroups(c) {
+  var subs = [], jobs = [], running = 0;
+  (c.agents || []).forEach(function (a) {
+    if ((a.origin || "") === "job") { jobs.push(a); if (!a.done) running++; }
+    else subs.push(a);
+  });
+  return { subs: subs, jobs: jobs, running: running };
+}
+function toolName(c) { return c.tool === "dsh" ? "DeepSeek Harness" : "Claude Code"; }
+function convById(id) {
+  var cs = (state.convDoc || {}).conversations || [];
+  for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i];
+  return null;
+}
+
+// ===== 视图切换 =====
+Array.prototype.forEach.call(document.querySelectorAll(".vbtn"), function (b) {
+  b.addEventListener("click", function () { switchView(b.getAttribute("data-view")); });
+});
+function switchView(v) {
+  state.view = v;
+  Array.prototype.forEach.call(document.querySelectorAll(".vbtn"), function (b) {
+    b.classList.toggle("on", b.getAttribute("data-view") === v);
+  });
+  document.getElementById("view-chat").style.display = v === "chat" ? "flex" : "none";
+  document.getElementById("view-tickets").style.display = v === "tickets" ? "block" : "none";
+  document.getElementById("view-status").style.display = v === "status" ? "block" : "none";
+  document.getElementById("side").classList.remove("show");
+}
+document.getElementById("menu-btn").addEventListener("click", function () {
+  document.getElementById("side").classList.toggle("show");
+});
+
+// ===== 侧栏：过滤器 + 会话列表 =====
+function renderFilters() {
+  var fl = document.getElementById("filters");
+  fl.textContent = "";
+  FILTERS.forEach(function (f) {
+    var chip = el("span", "fchip" + (state.filter === f.id ? " on" : ""), f.label);
+    chip.addEventListener("click", function () {
+      state.filter = f.id; renderFilters(); renderConvList();
+    });
+    fl.append(chip);
+  });
+}
+function renderConvList() {
+  var box = document.getElementById("conv-list");
+  box.textContent = "";
+  var convs = (state.convDoc || {}).conversations || [];
+  var list = convs.filter(function (c) { return matchFilter(c, state.filter); });
+  if (!list.length) { box.append(el("p", "muted", "（此过滤条件下没有会话）")); return; }
+  var doc = state.convDoc || {};
+  list.forEach(function (c) {
+    var item = el("div", "citem" + (state.sel === c.id ? " on" : ""));
+    var t1 = el("div", "t1");
+    var dot = el("span", "dot");
+    dot.style.background = c.status === "active" ? "var(--green)" :
+      (c.status === "recent" ? "var(--amber)" : "var(--dim)");
+    t1.append(dot, el("span", "ttl", c.title || "（无标题）"));
+    var t2 = el("div", "t2");
+    var bits = [c.turns + " 轮", fmtAge(c.updated)];
+    if (c.todo && c.todo.length) {
+      var td = c.todo.filter(function (i) { return i.status === "completed"; }).length;
+      bits.unshift("步骤 " + td + "/" + c.todo.length);
+    }
+    var g = agentGroups(c);
+    if (g.subs.length) bits.unshift("子代理 " + g.subs.length);
+    else if (g.jobs.length) bits.unshift("任务 " + g.jobs.length);
+    t2.textContent = bits.join(" · ");
+    item.append(t1, t2);
+    item.addEventListener("click", function () {
+      selectConv(c.id);
+      document.getElementById("side").classList.remove("show");
+    });
+    box.append(item);
+  });
+  var fm = document.getElementById("foot-meta");
+  var active = convs.filter(function (c) { return c.status === "active"; }).length;
+  fm.textContent = convs.length + " 个会话 · " + active + " 活跃";
+}
+
+// ===== 聊天主区 =====
+function selectConv(id) {
+  state.sel = id;
+  state.msgsShown[id] = state.msgsShown[id] || 80;
+  renderConvList();
+  renderChat(true);
+}
+function renderChat(forceBottom) {
+  var c = convById(state.sel);
+  var wrap = document.getElementById("msgs-wrap");
+  var wasBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 120;
+  var savedTop = wrap.scrollTop;
+  var titleEl = document.getElementById("h-title");
+  var metaEl = document.getElementById("h-meta");
+  var ai = document.getElementById("agents-info");
+  var msgs = document.getElementById("msgs");
+  msgs.textContent = "";
+
+  if (!c) {
+    titleEl.textContent = "新对话";
+    metaEl.textContent = "";
+    ai.textContent = "";
+    msgs.append(el("p", "muted center",
+      "选择左侧会话查看进程，或在下方直接输入新任务发送。"));
+    updateComposer();
+    return;
+  }
+  titleEl.textContent = c.title || "（无标题）";
+  metaEl.textContent = toolName(c) + " · " + c.turns + " 轮 · 更新 " + fmtAge(c.updated);
+  var g = agentGroups(c);
+  var aiBits = [];
+  if (g.subs.length) aiBits.push("子代理 " + g.subs.length);
+  if (g.jobs.length) aiBits.push("任务 " + g.jobs.length + (g.running ? "（" + g.running + " 进行中）" : ""));
+  ai.textContent = aiBits.length ? "ⓘ " + aiBits.join(" · ") : "";
+  ai.style.display = aiBits.length ? "" : "none";
+  ai.onclick = function () { openAgents(c); };
+
+  var list = c.messages || [];
+  var shown = state.msgsShown[c.id] || 80;
+  if (list.length > shown) {
+    var le = el("div", "load-earlier");
+    var btn = el("span", "morebtn", "↑ 加载更早的 " + (list.length - shown) + " 条");
+    btn.addEventListener("click", function () {
+      state.msgsShown[c.id] = shown + 80;
+      renderChat(false);
+    });
+    le.append(btn);
+    msgs.append(le);
+  }
+  // 步骤清单（Claude 计划 / DSH todo）：像图二那样的一目了然的进度卡
+  var todo = c.todo || [];
+  if (todo.length) {
+    var card = el("div", "todo-card");
+    var done = todo.filter(function (i) { return i.status === "completed"; }).length;
+    var th = el("div", "thead");
+    th.append(el("span", null, "📋 任务步骤"));
+    var inProgress = todo.some(function (i) { return i.status === "in_progress"; });
+    th.append(el("span", "done-ratio",
+      inProgress ? "● 进行中 " : (done === todo.length ? "✓ 全部完成" : done + "/" + todo.length)));
+    card.append(th);
+    todo.forEach(function (it) {
+      var st = it.status === "completed" ? "completed" :
+        (it.status === "in_progress" ? "in_progress" : "pending");
+      var item = el("div", "todo-item " + st);
+      var tick = st === "completed" ? "✓" : (st === "in_progress" ? "◐" : "○");
+      item.append(el("span", "tick", tick), el("span", "txt", it.text || ""));
+      card.append(item);
+    });
+    msgs.append(card);
+  }
+  var lastDay = "";
+  (list.slice(-shown)).forEach(function (m) {
+    var day = fmtDay(m.at);
+    if (day && day !== lastDay) {
+      msgs.append(el("div", "day-sep", day));
+      lastDay = day;
+    }
+    var row = el("div", "msgrow " + (m.role === "user" ? "user" : "assistant"));
+    var av = el("div", "avatar", m.role === "user" ? "👤" : (c.tool === "dsh" ? "🧠" : "🤖"));
+    var body = el("div", "mbody");
+    var roleName = m.role === "user" ? "用户" : toolName(c);
+    body.append(el("div", "mrole", roleName + (m.at ? " · " + fmtTime(m.at) : "")));
+    if (m.text) body.append(el("div", "mtext", m.text || ""));
+    var tls = m.tools || [];
+    if (tls.length) {
+      var counts = {};
+      tls.forEach(function (n) { counts[n] = (counts[n] || 0) + 1; });
+      var parts = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })
+        .slice(0, 4).map(function (n) {
+          return n.replace(/^mcp__/, "").replace(/__/g, " · ") + (counts[n] > 1 ? "×" + counts[n] : "");
+        });
+      var tl = el("div", "tools-line");
+      tl.append(document.createTextNode("🔧 工具 " + tls.length + " 次：" ),
+               el("b", null, parts.join(" · ")));
+      if (Object.keys(counts).length > 4) tl.append(document.createTextNode(" 等"));
+      body.append(tl);
+    }
+    row.append(av, body);
+    msgs.append(row);
+  });
+  // 本地系统提示（发送指令的回执）
+  var key = c.id || "_new";
+  (state.notes[key] || []).forEach(function (n) {
+    var d = el("div", "sysnote");
+    var s = el("span");
+    s.textContent = n.text;
+    if (n.url) {
+      s.append(document.createTextNode(" "));
+      var a = el("a", null, "查看 issue");
+      a.href = n.url; a.target = "_blank"; a.rel = "noopener";
+      s.append(a);
+    }
+    d.append(s);
+    msgs.append(d);
+  });
+  if (!list.length && !(state.notes[key] || []).length) {
+    msgs.append(el("p", "muted center", "（无对话内容：superagent 运行痕迹）"));
+  }
+  updateComposer();
+  if (forceBottom || wasBottom) wrap.scrollTop = wrap.scrollHeight;
+  else wrap.scrollTop = savedTop;
+}
+
+// ===== agents 弹层 =====
+function openAgents(c) {
+  var m = document.getElementById("agents-modal");
+  var b = document.getElementById("amodal-body");
+  b.textContent = "";
+  var x = el("span", "close", "✕");
+  x.addEventListener("click", function () { m.classList.remove("show"); });
+  var h = el("h3", null, "agent 树 · " + (c.title || c.id));
+  b.append(x, h);
+  var g = agentGroups(c);
+  if (g.subs.length) {
+    var grp = el("div", "grp");
+    grp.append(el("div", "ghead", "子代理（" + g.subs.length + "）"));
+    g.subs.forEach(function (a) {
+      var r = el("div", "arow");
+      r.append(a.done ? el("span", "adone", "✓") : el("span", "arunning", "●"),
+               el("span", "aname", a.name || "subagent"),
+               el("span", "muted", (a.task || "").slice(0, 100)));
+      grp.append(r);
+    });
+    b.append(grp);
+  }
+  if (g.jobs.length) {
+    var jgrp = el("div", "grp");
+    jgrp.append(el("div", "ghead", "后台任务 " + g.jobs.length +
+      "（完成 " + (g.jobs.length - g.running) + (g.running ? "，进行中 " + g.running : "") + "）"));
+    g.jobs.slice(-12).forEach(function (a) {
+      var r = el("div", "arow");
+      r.append(a.done ? el("span", "adone", "✓") : el("span", "arunning", "●"),
+               el("span", "muted", (a.task || a.name || "").slice(0, 110)));
+      jgrp.append(r);
+    });
+    if (g.jobs.length > 12) jgrp.append(el("div", "muted", "… 其余 " + (g.jobs.length - 12) + " 条已合并"));
+    b.append(jgrp);
+  }
+  if (!g.subs.length && !g.jobs.length) b.append(el("p", "muted", "（无 agent 记录）"));
+  m.classList.add("show");
+}
+document.getElementById("agents-modal").addEventListener("click", function (e) {
+  if (e.target === this) this.classList.remove("show");
+});
+
+// ===== 输入区（指令发送器） =====
+function updateComposer() {
+  var mode = document.getElementById("cmp-mode");
+  var input = document.getElementById("cmp-input");
+  var c = convById(state.sel);
+  mode.textContent = "";
+  if (c && c.tool === "claude-code") {
+    mode.append(el("span", null, "↩ 续聊会话 " + String(c.id).slice(0, 8) + "（Claude Code）"));
+    var sw = el("span", "morebtn", "＋ 改发新任务");
+    sw.addEventListener("click", function () {
+      state.sel = null; renderConvList(); renderChat(true);
+      document.getElementById("cmp-input").focus();
+    });
+    mode.append(sw);
+    input.placeholder = "回复此会话，回车发送…";
+  } else {
+    var mk = function (id, label) {
+      var chip = el("span", "cmp-chip" + (state.tool === id ? " on" : ""), label);
+      chip.addEventListener("click", function () { state.tool = id; updateComposer(); });
+      return chip;
+    };
+    mode.append(mk("claude", "🤖 Claude Code"), mk("dsh", "🧠 DeepSeek Harness"));
+    if (c && c.tool === "dsh") {
+      mode.append(el("span", "muted", "（DSH 暂不支持续聊，将发起新任务）"));
+    }
+    input.placeholder = "输入新任务，回车发送…";
+  }
+}
+var RELAY = "http://127.0.0.1:3083/cmd";
+var RELAY_TIMEOUT_MS = 4000;
+function sendViaRelay(title, done) {
+  var ctrl = new AbortController();
+  var timer = setTimeout(function () { ctrl.abort(); }, RELAY_TIMEOUT_MS);
+  fetch(RELAY, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-From-Dashboard": "1" },
+    body: JSON.stringify({ title: title }),
+    signal: ctrl.signal
+  }).then(function (r) { return r.json(); }).then(function (j) {
+    clearTimeout(timer);
+    done(j);
+  }).catch(function () {
+    clearTimeout(timer);
+    done(null);
+  });
+}
+function sendCommand() {
+  var input = document.getElementById("cmp-input");
+  var text = input.value.trim();
+  if (!text) return;
+  var c = convById(state.sel);
+  var title;
+  if (c && c.tool === "claude-code") {
+    title = "send claude " + c.id + " " + text;
+  } else {
+    title = "new " + state.tool + " " + text;
+  }
+  var key = (c && c.id) || "_new";
+  sendViaRelay(title, function (j) {
+    if (j && j.ok) {
+      state.notes[key] = (state.notes[key] || []).concat(
+        [{ text: "⏳ 已提交「" + title.slice(0, 60) + "」，约 30 秒内开始执行，结果回帖在 issue", url: j.url }]);
+    } else if (j) {
+      state.notes[key] = (state.notes[key] || []).concat([{ text: "❌ " + (j.error || "中继拒绝") }]);
+    } else {
+      state.notes[key] = (state.notes[key] || []).concat(
+        [{ text: "↗ 本机中继不可用（非本机访问或未启动），已打开 GitHub 提交页", url: NEW_ISSUE_URL + "?title=" + encodeURIComponent(title) }]);
+      window.open(NEW_ISSUE_URL + "?title=" + encodeURIComponent(title), "_blank");
+    }
+    input.value = "";
+    renderChat(true);
+  });
+}
+document.getElementById("cmp-send").addEventListener("click", sendCommand);
+document.getElementById("cmp-input").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") sendCommand();
+});
+document.getElementById("new-chat").addEventListener("click", function () {
+  state.sel = null;
+  switchView("chat");
+  renderConvList();
+  renderChat(true);
+  document.getElementById("cmp-input").focus();
+  document.getElementById("side").classList.remove("show");
+});
+
+// ===== status.json（状态视图 + 顶部警报条 + 工单表） =====
+var PERSON_LABELS = { delivery: "投递未达", answer: "待回答", review: "待评审",
+                      blocked: "受阻", failed: "失败" };
+function stageBadge(stage) {
+  var s = String(stage || ""), tone = "b-gray", label = s || "未知";
+  if (s.indexOf("person/") === 0) {
+    tone = "b-amber";
+    label = "待人工 · " + (PERSON_LABELS[s.slice(7)] || s.slice(7));
+  } else if (s === "working") { tone = "b-blue"; }
+  else if (s === "working/queued") { tone = "b-blue"; label = "排队中"; }
+  else if (s.indexOf("idle") === 0) { tone = "b-gray"; label = "等待触发"; }
+  return el("span", "badge " + tone, label);
+}
+function stateTone(v) {
+  if (v === "ready") return "var(--green)";
+  if (v === "error") return "var(--red)";
+  return "var(--amber)";
+}
+function renderStatus(d) {
+  // 警报条
+  var ab = document.getElementById("alertbar");
+  if (d.degraded || d.agent_api_ok === false) {
+    ab.className = "red";
+    ab.textContent = "⚠ 管理 API 不可达：agent 服务可能已停止或正在重启";
+  } else if (d.paused) {
+    ab.className = "amber";
+    ab.textContent = "⏸ 处理已暂停（paused）：评估、派工与回复均已挂起";
+  } else if (d.setup_problem) {
+    ab.className = "amber";
+    ab.textContent = "等待 setup：" + (typeof d.setup_problem === "object" ? JSON.stringify(d.setup_problem) : String(d.setup_problem));
+  } else {
+    ab.className = ""; ab.textContent = "";
+  }
+  document.getElementById("banner-degraded").style.display =
+    (d.degraded || d.agent_api_ok === false) ? "block" : "none";
+  document.getElementById("banner-paused").style.display = d.paused ? "block" : "none";
+  var sb = document.getElementById("banner-setup");
+  var sp = d.setup_problem;
+  sb.style.display = sp ? "block" : "none";
+  if (sp) sb.textContent = "等待 setup：" + (typeof sp === "object" ? JSON.stringify(sp) : String(sp));
+
+  // 状态卡
+  var stats = el("div", "grid");
+  stats.id = "stats";
+  function stat(k, v) {
+    var cc = el("div", "stat");
+    cc.append(el("div", "k", k), el("div", "v", String(v)));
+    return cc;
+  }
+  var load = d.load || {};
+  stats.append(stat("执行中 worker",
+    (load.running != null ? load.running : "—") + " / " + (load.maxWorkers != null ? load.maxWorkers : "—")));
+  stats.append(stat("排队工单", load.queued != null ? load.queued : "—"));
+  var ms = d.mirror_sync || {};
+  stats.append(stat("镜像同步", ms.diverged ? "分叉！" : (ms.last_success ? fmtAge(ms.last_success) : "未知")));
+  stats.append(stat("工单数", d.tickets ? d.tickets.length : "—"));
+  var old = document.getElementById("stats");
+  if (old) old.replaceWith(stats);
+
+  var chips = el("div", "chips");
+  chips.id = "health";
+  var health = d.health || {};
+  Object.keys(health).forEach(function (k) {
+    var chip = el("span", "chip");
+    var dot = el("span", "dot");
+    dot.style.background = stateTone(health[k]);
+    dot.style.marginRight = "6px";
+    chip.append(dot, k + "：" + health[k]);
+    chips.append(chip);
+  });
+  if (!Object.keys(health).length) chips.append(el("span", "chip", "无健康数据"));
+  var oldChips = document.getElementById("health");
+  if (oldChips) oldChips.replaceWith(chips);
+
+  document.getElementById("status-meta").textContent =
+    "快照 " + (d.generated_at || "—") + " · " + fmtAge(d.generated_at) + " · 每 " + (CONFIG.refreshMs / 1000) + " 秒自动刷新";
+
+  // 工单
+  var tb = document.getElementById("tickets");
+  tb.textContent = "";
+  var note = document.getElementById("tickets-note");
+  note.style.display = "none";
+  if (!d.tickets) {
+    note.style.display = "block";
+    note.textContent = "工单数据不可用：GET /orchestrator/api/tickets 在当前版本不可用（发布器自动跳过）。";
+    return;
+  }
+  if (!d.tickets.length) {
+    note.style.display = "block";
+    note.textContent = "当前没有工单。";
+    return;
+  }
+  d.tickets.forEach(function (t) {
+    var tr = el("tr");
+    tr.append(el("td", null, String(t.id || "?")));
+    var c2 = el("td");
+    c2.textContent = t.title || "—";
+    if (t.note) c2.append(el("div", "muted", t.note));
+    tr.append(c2);
+    var c3 = el("td");
+    c3.append(stageBadge(t.stage));
+    tr.append(c3);
+    var c4 = el("td");
+    if (t.url) {
+      var a = el("a", null, "打开 ↗");
+      a.href = t.url; a.target = "_blank"; a.rel = "noopener";
+      c4.append(a);
+    } else c4.textContent = "—";
+    tr.append(c4);
+    tb.append(tr);
+  });
+}
+
+// ===== 数据拉取 =====
+function fetchStatus() {
+  var url = CONFIG.rawJsonUrl
+    ? CONFIG.rawJsonUrl + (CONFIG.rawJsonUrl.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now()
+    : "status.json";
+  fetch(url, { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(renderStatus)
+    .catch(function (e) {
+      document.getElementById("status-meta").textContent = "读取失败：" + e.message + "（稍后自动重试）";
+    });
+}
+function fetchConversations() {
+  fetch("conversations.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function (doc) {
+      state.convDoc = doc;
+      renderConvList();
+      if (!state.sel && doc.conversations && doc.conversations.length) {
+        selectConv(doc.conversations[0].id);   // 默认选中最新会话
+      } else {
+        renderChat(false);
+      }
+    })
+    .catch(function (e) {
+      document.getElementById("msgs").textContent = "";
+      document.getElementById("msgs").append(el("p", "muted center", "对话数据不可用：" + e.message));
+    });
+}
+document.getElementById("refresh").addEventListener("click", function () {
+  fetchStatus(); fetchConversations();
+});
+setInterval(fetchStatus, CONFIG.refreshMs);
+setInterval(fetchConversations, CONFIG.refreshMs);
+renderFilters();
+fetchStatus();
+fetchConversations();
+</script>
+</body>
+</html>

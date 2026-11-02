@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-11-07T09:17:06Z",
+  "agent_api_ok": true,
+  "paused": false,
+  "health": {
+    "runtime": "ready",
+    "relay": "ready",
+    "notice": "ready",
+    "launch": "ready",
+    "delivery": "ready",
+    "assessment": "ready",
+    "reply": "ready",
+    "evals": "ready",
+    "models": "ready",
+    "github": "ready"
+  },
+  "load": {
+    "running": 0,
+    "queued": 0,
+    "maxWorkers": 2
+  },
+  "setup_problem": null,
+  "mirror_sync": {
+    "last_success": "2026-11-07T09:17:06Z",
+    "diverged": false
+  },
+  "tickets": []
+}
